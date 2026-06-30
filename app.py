@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import time
 import os
 import tomllib
+import base64
 
 def get_max_upload_size() -> int:
     config_path = os.path.join(os.path.dirname(__file__), ".streamlit", "config.toml")
@@ -216,13 +217,26 @@ st.markdown("""
     outline: none !important;
 }
 [data-testid="stChatInput"]:focus-within {
-    border-color: #30363d !important;
+    border-color: #f0883e !important;
     box-shadow: none !important;
 }
 [data-testid="stChatInput"] textarea {
     background-color: transparent !important;
     color: #e6edf3 !important;
     caret-color: #e6edf3 !important;
+}
+[data-testid="stChatInputSubmitButton"] button,
+[data-testid="stChatInput"] button,
+[data-baseweb="textarea"] ~ button,
+button[kind="primaryFormSubmit"] {
+    background-color: #f0883e !important;
+    border-color: #f0883e !important;
+}
+[data-testid="stChatInputSubmitButton"] button:hover,
+[data-testid="stChatInput"] button:hover,
+button[kind="primaryFormSubmit"]:hover {
+    background-color: #e07830 !important;
+    border-color: #e07830 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -236,6 +250,20 @@ if "doc_name" not in st.session_state:
     st.session_state.doc_name = None
 if "doc_pages" not in st.session_state:
     st.session_state.doc_pages = 0
+
+# ── Avatars (cached so images are read from disk only once) ───────────────────
+@st.cache_resource
+def load_avatars() -> dict:
+    def to_b64(path):
+        with open(path, "rb") as f:
+            return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+    base = os.path.dirname(__file__)
+    return {
+        "assistant": to_b64(os.path.join(base, "lumen_bot_icon.png")),
+        "user":      to_b64(os.path.join(base, "lumen_user_icon.png")),
+    }
+
+AVATARS = load_avatars()
 
 # ── Gemini client ─────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -404,7 +432,7 @@ def show_chat():
     # height=500 is a fallback; JS overrides it to the exact remaining viewport.
     with st.container(height=500, border=False):
         for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
+            with st.chat_message(msg["role"], avatar=AVATARS[msg["role"]]):
                 st.markdown(msg["content"])
                 if msg.get("pages"):
                     pages_str = ", ".join(str(p) for p in msg["pages"])
@@ -417,12 +445,12 @@ def show_chat():
     # ── Chat input (viewport-fixed above footer via CSS) ─────────────────────
     if query := st.chat_input("Ask a question about the document…"):
         st.session_state.messages.append({"role": "user", "content": query})
-        prompt, pages = build_prompt(query, st.session_state.vector_db, st.session_state.messages)
 
         with response_area.container():
-            with st.chat_message("user"):
+            with st.chat_message("user", avatar=AVATARS["user"]):
                 st.markdown(query)
-            with st.chat_message("assistant"):
+            prompt, pages = build_prompt(query, st.session_state.vector_db, st.session_state.messages)
+            with st.chat_message("assistant", avatar=AVATARS["assistant"]):
                 answer = st.write_stream(stream_response(prompt))
                 pages_str = ", ".join(str(p) for p in pages)
                 st.markdown(f'<span class="source-tag">📖 page(s) {pages_str}</span>', unsafe_allow_html=True)
