@@ -97,6 +97,19 @@ st.markdown("""
     margin-bottom: 12px;
 }
 
+/* Indexing spinner */
+.lumen-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(240,136,62,0.2);
+    border-top-color: #f0883e;
+    border-radius: 50%;
+    animation: lumen-spin 0.8s linear infinite;
+    display: inline-block;
+    flex-shrink: 0;
+}
+@keyframes lumen-spin { to { transform: rotate(360deg); } }
+
 /* Strip chrome from the scrollable message container */
 [data-testid="stVerticalScrollableBlock"] {
     border: none !important;
@@ -424,26 +437,6 @@ if st.query_params.get("action") == "new":
     st.session_state.messages = []
     st.rerun()
 
-if not st.session_state.vector_db:
-    uploaded = show_landing()
-    if uploaded:
-        _, col, _ = st.columns([1, 2, 1])
-        with col:
-            with st.spinner("Indexing document…"):
-                vector_db, page_count = build_vector_store(uploaded)
-                st.session_state.vector_db = vector_db
-                st.session_state.doc_name = uploaded.name
-                st.session_state.doc_pages = page_count
-                st.session_state.messages = [
-                    {
-                        "role": "assistant",
-                        "content": f"I've read **{uploaded.name}** ({page_count} pages). What would you like to know?",
-                    }
-                ]
-        st.rerun()
-else:
-    show_chat()
-
 st.markdown(
     '<div class="lumen-footer">'
     '© 2026 Lumen by <a href="https://github.com/hnprivv">Huzaifa Najam</a>. All rights reserved.<br>'
@@ -452,3 +445,33 @@ st.markdown(
     '</div>',
     unsafe_allow_html=True,
 )
+
+if not st.session_state.vector_db:
+    uploaded = show_landing()
+    if uploaded:
+        _, col, _ = st.columns([1, 2, 1])
+        with col:
+            status = st.empty()
+            status.markdown("""
+            <div style="display:flex;align-items:center;gap:0.75rem;
+                        background:#161b22;border:1px solid #f0883e;border-radius:10px;
+                        padding:0.75rem 1.25rem;margin-top:0.5rem;">
+                <div class="lumen-spinner"></div>
+                <span style="color:#8b949e;font-size:0.92rem;font-weight:500;">
+                    Indexing your document…
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            vector_db, page_count = build_vector_store(uploaded)
+            st.session_state.vector_db = vector_db
+            st.session_state.doc_name = uploaded.name
+            st.session_state.doc_pages = page_count
+            st.session_state.messages = [
+                {
+                    "role": "assistant",
+                    "content": f"I've read **{uploaded.name}** ({page_count} pages). What would you like to know?",
+                }
+            ]
+        st.rerun()
+else:
+    show_chat()
