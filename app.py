@@ -356,21 +356,25 @@ def show_landing():
 
 # ── Chat page ─────────────────────────────────────────────────────────────────
 def show_chat():
-    # Header — always visible; page body won't scroll because messages live in
-    # their own fixed-height container below.
-    st.markdown(f"""
-    <div class="chat-header">
-        <div class="chat-header-left">
-            <span class="chat-badge">Lumen</span>
-            <span class="chat-doc">📄 {st.session_state.doc_name} &nbsp;·&nbsp; {st.session_state.doc_pages} pages</span>
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.markdown(f"""
+        <div class="chat-header">
+            <div class="chat-header-left">
+                <span class="chat-badge">Lumen</span>
+                <span class="chat-doc">📄 {st.session_state.doc_name} &nbsp;·&nbsp; {st.session_state.doc_pages} pages</span>
+            </div>
         </div>
-        <a href="/?action=new" class="new-btn">↩ New</a>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div style="margin-top:16px"></div>', unsafe_allow_html=True)
+        if st.button("↩ New", use_container_width=True):
+            st.session_state.vector_db = None
+            st.session_state.doc_name = None
+            st.session_state.doc_pages = 0
+            st.session_state.messages = []
+            st.rerun()
 
-    # Size the message container to fill exactly the space between the header
-    # and the chat input. The footer (76px) and input (~72px) positions are
-    # fixed by CSS; JS only needs to read the header's bottom edge.
     components.html("""
     <script>
     (function() {
@@ -429,17 +433,9 @@ def show_chat():
         st.rerun()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-if st.query_params.get("action") == "new":
-    st.query_params.clear()
-    st.session_state.vector_db = None
-    st.session_state.doc_name = None
-    st.session_state.doc_pages = 0
-    st.session_state.messages = []
-    st.rerun()
-
 st.markdown(
     '<div class="lumen-footer">'
-    '© 2026 Lumen by <a href="https://github.com/hnprivv">Huzaifa Najam</a>. All rights reserved.<br>'
+    '© 2026 Lumen by <a href="https://github.com/hnprivv">Huzaifa Najam</a>. <br>'
     'Relevant excerpts from your document are sent to Google Gemini for answer generation and are not stored. '
     'Do not upload documents containing sensitive personal data.'
     '</div>',
