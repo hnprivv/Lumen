@@ -91,10 +91,23 @@ st.markdown("""
 .chat-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding-bottom: 14px;
+    justify-content: space-between;
+    padding: 16px 0 14px;
     border-bottom: 1px solid #21262d;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
+}
+
+/* Strip chrome from the scrollable message container */
+[data-testid="stVerticalScrollableBlock"] {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+.chat-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 .chat-badge {
     font-size: 20px;
@@ -111,6 +124,17 @@ st.markdown("""
     padding: 3px 10px;
     font-family: monospace;
 }
+.new-btn {
+    font-size: 13px;
+    color: #8b949e !important;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 5px 14px;
+    text-decoration: none !important;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+.new-btn:hover { border-color: #f0883e; color: #f0883e !important; }
 
 /* Justify assistant messages */
 [data-testid="stChatMessage"] .stMarkdown p { text-align: justify !important; }
@@ -141,21 +165,34 @@ st.markdown("""
     color: #f0883e !important;
 }
 
-/* Footer */
+/* Footer — fixed height so CSS can reference it reliably */
 .lumen-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 58px;
+    box-sizing: border-box;
     text-align: center;
     font-size: 12px;
     color: #484f58;
-    padding: 40px 0 20px;
+    padding: 10px 0 12px;
+    background: #0d1117;
     border-top: 1px solid #21262d;
-    margin-top: 40px;
+    z-index: 999;
 }
+
+/* Chat input sits directly above the footer */
+[data-testid="stBottom"] { bottom: 90px !important; }
 .lumen-footer a {
     color: #484f58;
     text-decoration: none;
     transition: color 0.15s;
 }
 .lumen-footer a:hover { color: #f0883e; }
+
+/* Breathing room above fixed footer */
+.main .block-container { padding-bottom: 60px !important; }
 
 /* Chat input */
 [data-testid="stChatInput"] {
@@ -306,68 +343,111 @@ def show_landing():
 
 # ── Chat page ─────────────────────────────────────────────────────────────────
 def show_chat():
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        st.markdown(f"""
-        <div class="chat-header">
+    # Header — always visible; page body won't scroll because messages live in
+    # their own fixed-height container below.
+    st.markdown(f"""
+    <div class="chat-header">
+        <div class="chat-header-left">
             <span class="chat-badge">Lumen</span>
             <span class="chat-doc">📄 {st.session_state.doc_name} &nbsp;·&nbsp; {st.session_state.doc_pages} pages</span>
         </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        if st.button("↩ New", use_container_width=True):
-            st.session_state.vector_db = None
-            st.session_state.doc_name = None
-            st.session_state.doc_pages = 0
-            st.session_state.messages = []
-            st.rerun()
+        <a href="/?action=new" class="new-btn">↩ New</a>
+    </div>
+    """, unsafe_allow_html=True)
 
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-            if msg.get("pages"):
-                pages_str = ", ".join(str(p) for p in msg["pages"])
-                st.markdown(f'<span class="source-tag">📖 page(s) {pages_str}</span>', unsafe_allow_html=True)
+    # Size the message container to fill exactly the space between the header
+    # and the chat input. The footer (76px) and input (~72px) positions are
+    # fixed by CSS; JS only needs to read the header's bottom edge.
+    components.html("""
+    <script>
+    (function() {
+        var FOOTER_H = 90, INPUT_H = 72, GAP = 4;
+        function apply() {
+            try {
+                var doc    = window.parent.document;
+                var sc     = doc.querySelector('[data-testid="stVerticalScrollableBlock"]');
+                var header = doc.querySelector('.chat-header');
+                if (!sc || !header) { setTimeout(apply, 200); return; }
+                var vh     = window.parent.innerHeight;
+                var scTop  = header.getBoundingClientRect().bottom + 12;
+                var h      = vh - scTop - INPUT_H - FOOTER_H - GAP;
+                sc.style.height    = Math.max(200, h) + 'px';
+                sc.style.maxHeight = Math.max(200, h) + 'px';
+                sc.scrollTop = sc.scrollHeight;
+            } catch(e) {}
+        }
+        setTimeout(apply, 300);
+        setTimeout(apply, 900);
+        window.parent.addEventListener('resize', apply);
+    })();
+    </script>
+    """, height=0)
 
+    # ── Scrollable message area ──────────────────────────────────────────────
+    # height=500 is a fallback; JS overrides it to the exact remaining viewport.
+    with st.container(height=500, border=False):
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+                if msg.get("pages"):
+                    pages_str = ", ".join(str(p) for p in msg["pages"])
+                    st.markdown(f'<span class="source-tag">📖 page(s) {pages_str}</span>', unsafe_allow_html=True)
+
+        # Placeholder sits at the bottom of the container so streaming responses
+        # appear inside the scroll box, not below the chat input.
+        response_area = st.empty()
+
+    # ── Chat input (viewport-fixed above footer via CSS) ─────────────────────
     if query := st.chat_input("Ask a question about the document…"):
         st.session_state.messages.append({"role": "user", "content": query})
-        with st.chat_message("user"):
-            st.markdown(query)
-
         prompt, pages = build_prompt(query, st.session_state.vector_db, st.session_state.messages)
 
-        with st.chat_message("assistant"):
-            answer = st.write_stream(stream_response(prompt))
-            pages_str = ", ".join(str(p) for p in pages)
-            st.markdown(f'<span class="source-tag">📖 page(s) {pages_str}</span>', unsafe_allow_html=True)
+        with response_area.container():
+            with st.chat_message("user"):
+                st.markdown(query)
+            with st.chat_message("assistant"):
+                answer = st.write_stream(stream_response(prompt))
+                pages_str = ", ".join(str(p) for p in pages)
+                st.markdown(f'<span class="source-tag">📖 page(s) {pages_str}</span>', unsafe_allow_html=True)
 
         st.session_state.messages.append(
             {"role": "assistant", "content": answer, "pages": pages}
         )
+        st.rerun()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+if st.query_params.get("action") == "new":
+    st.query_params.clear()
+    st.session_state.vector_db = None
+    st.session_state.doc_name = None
+    st.session_state.doc_pages = 0
+    st.session_state.messages = []
+    st.rerun()
+
 if not st.session_state.vector_db:
     uploaded = show_landing()
     if uploaded:
-        with st.spinner("Indexing document…"):
-            vector_db, page_count = build_vector_store(uploaded)
-            st.session_state.vector_db = vector_db
-            st.session_state.doc_name = uploaded.name
-            st.session_state.doc_pages = page_count
-            st.session_state.messages = [
-                {
-                    "role": "assistant",
-                    "content": f"I've read **{uploaded.name}** ({page_count} pages). What would you like to know?",
-                }
-            ]
+        _, col, _ = st.columns([1, 2, 1])
+        with col:
+            with st.spinner("Indexing document…"):
+                vector_db, page_count = build_vector_store(uploaded)
+                st.session_state.vector_db = vector_db
+                st.session_state.doc_name = uploaded.name
+                st.session_state.doc_pages = page_count
+                st.session_state.messages = [
+                    {
+                        "role": "assistant",
+                        "content": f"I've read **{uploaded.name}** ({page_count} pages). What would you like to know?",
+                    }
+                ]
         st.rerun()
 else:
     show_chat()
 
 st.markdown(
     '<div class="lumen-footer">'
-    '© 2026 Lumen by <a href="https://github.com/hnprivv">Huzaifa Najam</a>.<br><br>'
-    'Relevant excerpts from your document are sent to Google Gemini for answer generation and are not stored. <br>'
+    '© 2026 Lumen by <a href="https://github.com/hnprivv">Huzaifa Najam</a>. All rights reserved.<br>'
+    'Relevant excerpts from your document are sent to Google Gemini for answer generation and are not stored. '
     'Do not upload documents containing sensitive personal data.'
     '</div>',
     unsafe_allow_html=True,
