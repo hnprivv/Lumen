@@ -23,7 +23,7 @@ from google import genai
 from google.genai import types
 
 # ── Page config (must be first) ───────────────────────────────────────────────
-st.set_page_config(page_title="Lumen", page_icon="💡", layout="centered")
+st.set_page_config(page_title="Lumen", page_icon="icon.png", layout="centered")
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -140,6 +140,22 @@ st.markdown("""
     border-color: #f0883e !important;
     color: #f0883e !important;
 }
+
+/* Footer */
+.lumen-footer {
+    text-align: center;
+    font-size: 12px;
+    color: #484f58;
+    padding: 40px 0 20px;
+    border-top: 1px solid #21262d;
+    margin-top: 40px;
+}
+.lumen-footer a {
+    color: #484f58;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+.lumen-footer a:hover { color: #f0883e; }
 
 /* Chat input */
 [data-testid="stChatInput"] {
@@ -347,3 +363,12 @@ if not st.session_state.vector_db:
         st.rerun()
 else:
     show_chat()
+
+st.markdown(
+    '<div class="lumen-footer">'
+    '© 2026 Lumen by <a href="https://github.com/hnprivv">Huzaifa Najam</a>.<br><br>'
+    'Relevant excerpts from your document are sent to Google Gemini for answer generation and are not stored. <br>'
+    'Do not upload documents containing sensitive personal data.'
+    '</div>',
+    unsafe_allow_html=True,
+)
