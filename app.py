@@ -481,6 +481,8 @@ if not st.session_state.vector_db:
                     "content": f"I've read **{uploaded.name}** ({page_count} pages). What would you like to know?",
                 }
             ]
+            status.empty()
+            time.sleep(0.4)
         st.rerun()
 else:
     show_chat()
