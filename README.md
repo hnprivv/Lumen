@@ -29,8 +29,8 @@ Most document chat tools let the model answer from general knowledge when the do
 ## Running locally
 
 ```bash
-git clone https://github.com/hnprivv/Lumen---RAG
-cd Lumen---RAG
+git clone https://github.com/hnprivv/Lumen
+cd Lumen
 python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # macOS/Linux
